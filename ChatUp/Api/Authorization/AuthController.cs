@@ -109,10 +109,10 @@ public class AuthController : ControllerBase
         });
     }
 
-    [HttpPost]
+    [HttpPut]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
     {
-        // Get the RefreshToken from the request body or cookies
+        // Get the RefreshToken from the request cookies or body
         string? refreshToken = HttpContext.Request.Cookies["RefreshToken"]
                             ?? request.Token;
 
@@ -121,7 +121,7 @@ public class AuthController : ControllerBase
             return Unauthorized("Refresh token is missing.");
         }
 
-        // Get the UserId token from the request body or cookies
+        // Get the UserId token from the request cookies or body
         string? userIdString = HttpContext.Request.Cookies["UserId"]
                             ?? request.UserId;
 
@@ -179,5 +179,43 @@ public class AuthController : ControllerBase
         {
             Token = newToken
         });
+    }
+
+    [HttpDelete]
+    public async Task<IActionResult> Logout()
+    {
+        // Get the AuthToken from cookies or headers
+        string? token = HttpContext.Request.Cookies["AuthToken"]
+                      ?? HttpContext.Request.Headers["AuthToken"].ToString();
+
+        if (string.IsNullOrEmpty(token))
+        {
+            return BadRequest("AuthToken is missing.");
+        }
+
+        // Find the session by token
+        var session = await _sessionRepository.GetAsync(s => s.Token == token);
+
+        if (session == null)
+        {
+            return NotFound("Session not found.");
+        }
+
+        // Delete the session from the database
+        _sessionRepository.Remove(session);
+        await _sessionRepository.SaveAsync();
+
+        // Clear cookies for web clients
+        bool isWebClient = HttpContext.Request.Headers["User-Agent"].ToString().Contains("Mozilla");
+
+        if (isWebClient)
+        {
+            Response.Cookies.Delete("AuthToken");
+            Response.Cookies.Delete("UserId");
+            Response.Cookies.Delete("RefreshToken");
+        }
+
+        // Return
+        return Ok("Logged out successfully.");
     }
 }

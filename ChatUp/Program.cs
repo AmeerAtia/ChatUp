@@ -1,15 +1,6 @@
-using ChatUp.Api.Validation;
 using ChatUp.Data.Database;
 using ChatUp.Data.Entities;
 using ChatUp.Data.Repositories;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing.Constraints;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using System.Reflection;
-using System.Text;
-using System.Text.Json.Serialization;
 
 namespace ChatUp;
 
