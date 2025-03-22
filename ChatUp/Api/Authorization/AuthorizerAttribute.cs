@@ -67,7 +67,7 @@ public class AuthorizerAttribute : Attribute, IAsyncActionFilter
 
     private async Task<bool> IsValidTokenAsync(int userId, string token)
     {
-        var session = await _sessionRepository.GetAsync(u => u.Token == token);
-        return session is not null && session.User.Id == userId;
+        var session = await _sessionRepository.GetAsync(s => s.Token == token && s.UserId == userId);
+        return session is not null && DateTimeOffset.FromUnixTimeSeconds(session.ExpirationAt) > DateTimeOffset.UtcNow;
     }
 }
