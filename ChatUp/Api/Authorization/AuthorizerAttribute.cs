@@ -40,7 +40,7 @@ public class AuthorizerAttribute : Attribute, IAsyncActionFilter
         }
 
         // Return user to the method
-        var parameter =context.ActionDescriptor.Parameters.FirstOrDefault(p =>
+        var parameter = context.ActionDescriptor.Parameters.FirstOrDefault(p =>
             p.Name.Equals(_parameterName, StringComparison.OrdinalIgnoreCase) &&
             p.ParameterType == typeof(User)
         );

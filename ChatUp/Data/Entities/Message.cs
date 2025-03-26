@@ -8,6 +8,7 @@ public class Message
     public required int RelationId { get; set; }
     public required string Content { get; set; }
     public required long CreatedAt { get; set; } // Unix timestamp
+    public bool IsEdited { get; set; } = false;
 
     // Navigation properties
     [ForeignKey("SenderId")]

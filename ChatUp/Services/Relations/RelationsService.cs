@@ -5,11 +5,11 @@ namespace ChatUp.Services.Relations;
 
 public class RelationsService : IRelationsService
 {
-    private readonly IRepository<Relation> _relationsRepository;
+    private readonly IRepository<Relation> _relationRepository;
 
-    public RelationsService(IRepository<Relation> relationsRepository)
+    public RelationsService(IRepository<Relation> relationRepository)
     {
-        _relationsRepository = relationsRepository;
+        _relationRepository = relationRepository;
     }
 
     public async Task<bool> RequestRelation(User user, int friendId)
@@ -17,7 +17,7 @@ public class RelationsService : IRelationsService
         if (user.Id == friendId) return false;
 
         // Check for existing relationships
-        var existingRelation = await _relationsRepository.GetAsync(r =>
+        var existingRelation = await _relationRepository.GetAsync(r =>
             (r.SenderId == user.Id && r.ReceiverId == friendId) ||
             (r.SenderId == friendId && r.ReceiverId == user.Id)
         );
@@ -32,8 +32,8 @@ public class RelationsService : IRelationsService
             Status = RelationStatus.Pending
         };
 
-        await _relationsRepository.InsertAsync(relation);
-        await _relationsRepository.SaveAsync();
+        await _relationRepository.InsertAsync(relation);
+        await _relationRepository.SaveAsync();
 
         // Return
         return true;
@@ -44,7 +44,7 @@ public class RelationsService : IRelationsService
         if (user.Id == friendId) return false;
 
         // Check for existing relationships
-        var relation = await _relationsRepository.GetAsync(r =>
+        var relation = await _relationRepository.GetAsync(r =>
             (r.SenderId == friendId && r.ReceiverId == user.Id) ||
             (r.Status == RelationStatus.Pending)
         );
@@ -54,8 +54,8 @@ public class RelationsService : IRelationsService
 
         relation.Status = RelationStatus.Accepted;
 
-        _relationsRepository.Update(relation);
-        await _relationsRepository.SaveAsync();
+        _relationRepository.Update(relation);
+        await _relationRepository.SaveAsync();
 
         // Return
         return true;
@@ -66,15 +66,15 @@ public class RelationsService : IRelationsService
         if (user.Id == friendId) return false;
 
         // Check for existing relationships
-        var relation = await _relationsRepository.GetAsync(r =>
+        var relation = await _relationRepository.GetAsync(r =>
             (r.SenderId == user.Id && r.ReceiverId == friendId) ||
             (r.Status == RelationStatus.Accepted)
         );
 
         if (relation is null) return false;
 
-        _relationsRepository.Remove(relation);
-        await _relationsRepository.SaveAsync();
+        _relationRepository.Remove(relation);
+        await _relationRepository.SaveAsync();
 
         // Return
         return true;
@@ -85,7 +85,7 @@ public class RelationsService : IRelationsService
         if (user.Id == friendId) return false;
 
         // Check for existing relationships
-        var existingRelation = await _relationsRepository.GetAsync(r =>
+        var existingRelation = await _relationRepository.GetAsync(r =>
             (r.SenderId == user.Id && r.ReceiverId == friendId) ||
             (r.SenderId == friendId && r.ReceiverId == user.Id)
         );
@@ -96,7 +96,7 @@ public class RelationsService : IRelationsService
             existingRelation.Status = RelationStatus.Blocked;
             existingRelation.SenderId = user.Id;
             existingRelation.ReceiverId = friendId;
-            _relationsRepository.Update(existingRelation);
+            _relationRepository.Update(existingRelation);
         }
         else
         {
@@ -106,11 +106,11 @@ public class RelationsService : IRelationsService
                 ReceiverId = friendId,
                 Status = RelationStatus.Blocked
             };
-            await _relationsRepository.InsertAsync(newRelation);
+            await _relationRepository.InsertAsync(newRelation);
         }
 
         // Finish
-        await _relationsRepository.SaveAsync();
+        await _relationRepository.SaveAsync();
         return true;
     }
 
@@ -119,15 +119,15 @@ public class RelationsService : IRelationsService
         if (user.Id == friendId) return false;
 
         // Check for existing relationships
-        var relation = await _relationsRepository.GetAsync(r =>
+        var relation = await _relationRepository.GetAsync(r =>
             (r.SenderId == user.Id && r.ReceiverId == friendId) ||
             (r.Status == RelationStatus.Blocked)
         );
 
         if (relation is null) return false;
 
-        _relationsRepository.Remove(relation);
-        await _relationsRepository.SaveAsync();
+        _relationRepository.Remove(relation);
+        await _relationRepository.SaveAsync();
 
         // Return
         return true;
@@ -136,7 +136,7 @@ public class RelationsService : IRelationsService
     public async Task<IEnumerable<Relation>> GetFriends(User user)
     {
         // Get all related friends relations
-        var friends = await _relationsRepository.GetListAsync(f =>
+        var friends = await _relationRepository.GetListAsync(f =>
             (f.SenderId == user.Id || f.ReceiverId == user.Id) &&
             f.Status == RelationStatus.Accepted
         );
@@ -148,7 +148,7 @@ public class RelationsService : IRelationsService
     public async Task<IEnumerable<Relation>> GetUserBlocked(User user)
     {
         // Get all related relations that the user blocked
-        var blocked = await _relationsRepository.GetListAsync(f =>
+        var blocked = await _relationRepository.GetListAsync(f =>
             f.SenderId == user.Id &&
             f.Status == RelationStatus.Blocked
         );
@@ -160,7 +160,7 @@ public class RelationsService : IRelationsService
     public async Task<IEnumerable<Relation>> GetBlockedUsers(User user)
     {
         // Get all related relations that blocked the user
-        var blocked = await _relationsRepository.GetListAsync(f =>
+        var blocked = await _relationRepository.GetListAsync(f =>
             f.Receiver.Id == user.Id &&
             f.Status == RelationStatus.Blocked
         );
