@@ -1,6 +1,6 @@
-﻿namespace ChatUp.Data.Database;
+﻿using ChatUp.Data.Entities;
 
-using ChatUp.Data.Entities;
+namespace ChatUp.Data.Database;
 
 public class AppDbContext : DbContext
 {

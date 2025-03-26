@@ -1,10 +1,16 @@
-﻿namespace ChatUp.Services.Relations;
+﻿using ChatUp.Data.Entities;
+
+namespace ChatUp.Services.Relations;
 
 public interface IRelationsService
 {
-    Task<bool> RequestRelation(int userId, int friendId);
-    Task<bool> AcceptRelation(int userId, int friendId);
-    Task<bool> RemoveRelation(int userId, int friendId);
-    Task<bool> BlockRelation(int userId, int friendId);
-    Task<bool> UnblockRelation(int userId, int friendId);
+    Task<bool> RequestRelation(User user, int friendId);
+    Task<bool> AcceptRelation(User user, int friendId);
+    Task<bool> RemoveRelation(User user, int friendId);
+    Task<bool> BlockRelation(User user, int friendId);
+    Task<bool> UnblockRelation(User user, int friendId);
+
+    Task<IEnumerable<Relation>> GetFriends(User user);
+    Task<IEnumerable<Relation>> GetUserBlocked(User user);
+    Task<IEnumerable<Relation>> GetBlockedUsers(User user);
 }

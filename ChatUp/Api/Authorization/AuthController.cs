@@ -1,7 +1,4 @@
-﻿using ChatUp.Data.Entities;
-using ChatUp.Data.Repositories;
-using ChatUp.Services.Authorization;
-using System.Security.Cryptography;
+﻿using ChatUp.Services.Authorization;
 
 namespace ChatUp.Api.Authorization;
 
@@ -16,8 +13,6 @@ public class AuthController : ControllerBase
         Expires = DateTime.UtcNow.AddMinutes(15)
     };
 
-    private readonly IRepository<User> _userRepository;
-    private readonly IRepository<Session> _sessionRepository;
     private readonly AuthService _authService;
 
     public AuthController(AuthService authService)
@@ -29,7 +24,7 @@ public class AuthController : ControllerBase
     /// Registers a new user.
     /// </summary>
     [HttpPost("signup")]
-    public async Task<IActionResult> SignUp([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Signup([FromBody] RegisterRequest request)
     {
         if (!await _authService.SignUp(request.Name, request.Email, request.Password))
             return BadRequest("Email already exists");
@@ -41,7 +36,7 @@ public class AuthController : ControllerBase
     /// Logs in a user and save a Session then return the Token
     /// </summary>
     [HttpPost("signin")]
-    public async Task<IActionResult> SignIn([FromBody] LoginRequest request)
+    public async Task<IActionResult> Signin([FromBody] LoginRequest request)
     {
         // Call sign in from authprization service and validate the result
         var result = await _authService.SignIn(request.Email, request.Password);
@@ -103,7 +98,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("signout")]
-    public async Task<IActionResult> SignOut()
+    public async Task<IActionResult> Signout()
     {
         // Get the AuthToken from cookies or headers
         string? token = HttpContext.Request.Cookies["AuthToken"]

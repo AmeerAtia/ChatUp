@@ -1,5 +1,4 @@
-﻿
-global using System.Collections.Generic;
+﻿global using System.Collections.Generic;
 global using Microsoft.EntityFrameworkCore;
 global using System.Reflection.Emit;
 global using System.Linq.Expressions;

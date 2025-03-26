@@ -1,5 +1,4 @@
 ﻿using ChatUp.Data.Entities;
-using ChatUp.Data.Repositories;
 using ChatUp.Services.Authorization;
 
 namespace ChatUp.Api.Authorization;
@@ -18,6 +17,9 @@ public class AuthorizerAttribute : Attribute, IAsyncActionFilter
     {
         var httpContext = context.HttpContext;
         var authService = httpContext.RequestServices.GetService<AuthService>();
+
+        if (authService is null )
+            throw new ArgumentNullException(nameof(authService));
 
         // Get token from cookie or header
         string? token = httpContext.Request.Cookies["AuthToken"]

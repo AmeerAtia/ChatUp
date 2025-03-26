@@ -16,9 +16,3 @@ public class AuthServiceTokenResult
     public required string Token;
     public required string RefreshToken;
 }
-
-public class AuthServiceValidateResult
-{
-    public required bool Condition;
-    public required User? User;
-}

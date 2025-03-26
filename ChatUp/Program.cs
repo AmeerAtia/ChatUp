@@ -1,6 +1,8 @@
 using ChatUp.Data.Database;
 using ChatUp.Data.Entities;
 using ChatUp.Data.Repositories;
+using ChatUp.Services.Authorization;
+using ChatUp.Services.Relations;
 
 namespace ChatUp;
 
@@ -27,6 +29,10 @@ public class Program
         builder.Services.AddScoped<IRepository<Relation>,Repository<Relation>>();
         builder.Services.AddScoped<IRepository<Message>,Repository<Message>>();
         builder.Services.AddScoped<IRepository<Session>,Repository<Session>>();
+
+        builder.Services.AddScoped<IAuthService, AuthService>();
+        builder.Services.AddScoped<IRelationsService, RelationsService>();
+
 
         var app = builder.Build();
 

@@ -1,8 +1,6 @@
 ﻿using ChatUp.Api.Authorization;
 using ChatUp.Data.Entities;
-using ChatUp.Data.Repositories;
 using ChatUp.Services.Relations;
-using Microsoft.AspNetCore.Http;
 
 namespace ChatUp.Api.Relations;
 
@@ -28,7 +26,7 @@ public class RelationsController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _relationsService.RequestRelation(user.Id,receiverId);
+        var result = await _relationsService.RequestRelation(user,receiverId);
 
         return result ? Ok() : BadRequest("Invalid relationship request");
     }
@@ -45,7 +43,7 @@ public class RelationsController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _relationsService.AcceptRelation(user.Id, senderId);
+        var result = await _relationsService.AcceptRelation(user, senderId);
 
         return result ? Ok() : NotFound("Pending request not found");
     }
@@ -62,7 +60,7 @@ public class RelationsController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _relationsService.RemoveRelation(user.Id, friendId);
+        var result = await _relationsService.RemoveRelation(user, friendId);
 
         return result ? Ok() : NotFound("Relationship not found");
     }
@@ -79,7 +77,7 @@ public class RelationsController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _relationsService.BlockRelation(user.Id, userId);
+        var result = await _relationsService.BlockRelation(user, userId);
 
         return result ? Ok() : BadRequest("Block operation failed");
     }
@@ -96,8 +94,59 @@ public class RelationsController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _relationsService.UnblockRelation(user.Id, blockedId);
+        var result = await _relationsService.UnblockRelation(user, blockedId);
 
         return result ? Ok() : NotFound("Block relationship not found");
+    }
+
+    /// <summary>
+    /// Get user's friends
+    /// </summary>
+    [HttpDelete("friends")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorizer("user")]
+    public async Task<IActionResult> GetFriends(User user)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _relationsService.GetFriends(user);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get all users that the user blocked
+    /// </summary>
+    [HttpDelete("userblocked")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorizer("user")]
+    public async Task<IActionResult> GetUserBlocked(User user)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _relationsService.GetUserBlocked(user);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get all users that blocked the user
+    /// </summary>
+    [HttpDelete("blockedusers")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorizer("user")]
+    public async Task<IActionResult> GetBlockedUsers(User user)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _relationsService.GetBlockedUsers(user);
+
+        return Ok(result);
     }
 }

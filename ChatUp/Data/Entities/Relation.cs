@@ -1,19 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-
-namespace ChatUp.Data.Entities;
+﻿namespace ChatUp.Data.Entities;
 
 public class Relation
 {
     [Key]
     public int Id { get; set; }
-    public int SenderId { get; set; }
-    public int ReceiverId { get; set; }
-    public RelationStatus Status { get; set; } // 0: Pending, 1: Accepted, 2: Blocked
+    public required int SenderId { get; set; }
+    public required int ReceiverId { get; set; }
+    public required RelationStatus Status { get; set; } // 0: Pending, 1: Accepted, 2: Blocked
 
     // Navigation properties
     [ForeignKey("SenderId")]
     public User Sender { get; set; }
-    [ForeignKey("FriendId")]
+    [ForeignKey("ReceiverId")]
     public User Receiver { get; set; }
     public ICollection<Message> Messages { get; set; }
 }

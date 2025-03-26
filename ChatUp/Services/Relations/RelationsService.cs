@@ -5,25 +5,21 @@ namespace ChatUp.Services.Relations;
 
 public class RelationsService : IRelationsService
 {
-    private readonly IRepository<User> _userRepository;
-    private readonly IRepository<Session> _sessionRepository;
     private readonly IRepository<Relation> _relationsRepository;
 
-    public RelationsService(IRepository<User> userRepository, IRepository<Session> sessionRepository, IRepository<Relation> relationsRepository)
+    public RelationsService(IRepository<Relation> relationsRepository)
     {
-        _userRepository = userRepository;
-        _sessionRepository = sessionRepository;
         _relationsRepository = relationsRepository;
     }
 
-    public async Task<bool> RequestRelation(int userId, int friendId)
+    public async Task<bool> RequestRelation(User user, int friendId)
     {
-        if (userId == friendId) return false;
+        if (user.Id == friendId) return false;
 
         // Check for existing relationships
         var existingRelation = await _relationsRepository.GetAsync(r =>
-            (r.SenderId == userId && r.ReceiverId == friendId) ||
-            (r.SenderId == friendId && r.ReceiverId == userId)
+            (r.SenderId == user.Id && r.ReceiverId == friendId) ||
+            (r.SenderId == friendId && r.ReceiverId == user.Id)
         );
 
         if (existingRelation is not null)
@@ -31,7 +27,7 @@ public class RelationsService : IRelationsService
 
         var relation = new Relation()
         {
-            SenderId = userId,
+            SenderId = user.Id,
             ReceiverId = friendId,
             Status = RelationStatus.Pending
         };
@@ -43,13 +39,13 @@ public class RelationsService : IRelationsService
         return true;
     }
 
-    public async Task<bool> AcceptRelation(int userId, int friendId)
+    public async Task<bool> AcceptRelation(User user, int friendId)
     {
-        if (userId == friendId) return false;
+        if (user.Id == friendId) return false;
 
         // Check for existing relationships
         var relation = await _relationsRepository.GetAsync(r =>
-            (r.SenderId == friendId && r.ReceiverId == userId) ||
+            (r.SenderId == friendId && r.ReceiverId == user.Id) ||
             (r.Status == RelationStatus.Pending)
         );
 
@@ -65,13 +61,13 @@ public class RelationsService : IRelationsService
         return true;
     }
 
-    public async Task<bool> RemoveRelation(int userId, int friendId)
+    public async Task<bool> RemoveRelation(User user, int friendId)
     {
-        if (userId == friendId) return false;
+        if (user.Id == friendId) return false;
 
         // Check for existing relationships
         var relation = await _relationsRepository.GetAsync(r =>
-            (r.SenderId == userId && r.ReceiverId == friendId) ||
+            (r.SenderId == user.Id && r.ReceiverId == friendId) ||
             (r.Status == RelationStatus.Accepted)
         );
 
@@ -84,20 +80,21 @@ public class RelationsService : IRelationsService
         return true;
     }
 
-    public async Task<bool> BlockRelation(int userId, int friendId)
+    public async Task<bool> BlockRelation(User user, int friendId)
     {
-        if (userId == friendId) return false;
+        if (user.Id == friendId) return false;
 
         // Check for existing relationships
         var existingRelation = await _relationsRepository.GetAsync(r =>
-            (r.SenderId == userId && r.ReceiverId == friendId) ||
-            (r.SenderId == friendId && r.ReceiverId == userId)
+            (r.SenderId == user.Id && r.ReceiverId == friendId) ||
+            (r.SenderId == friendId && r.ReceiverId == user.Id)
         );
 
-        if (existingRelation is not null)
+        if (existingRelation is not null &&
+            existingRelation.Status is not RelationStatus.Blocked)
         {
             existingRelation.Status = RelationStatus.Blocked;
-            existingRelation.SenderId = userId;
+            existingRelation.SenderId = user.Id;
             existingRelation.ReceiverId = friendId;
             _relationsRepository.Update(existingRelation);
         }
@@ -105,7 +102,7 @@ public class RelationsService : IRelationsService
         {
             var newRelation = new Relation()
             {
-                SenderId = userId,
+                SenderId = user.Id,
                 ReceiverId = friendId,
                 Status = RelationStatus.Blocked
             };
@@ -117,13 +114,13 @@ public class RelationsService : IRelationsService
         return true;
     }
 
-    public async Task<bool> UnblockRelation(int userId, int friendId)
+    public async Task<bool> UnblockRelation(User user, int friendId)
     {
-        if (userId == friendId) return false;
+        if (user.Id == friendId) return false;
 
         // Check for existing relationships
         var relation = await _relationsRepository.GetAsync(r =>
-            (r.SenderId == userId && r.ReceiverId == friendId) ||
+            (r.SenderId == user.Id && r.ReceiverId == friendId) ||
             (r.Status == RelationStatus.Blocked)
         );
 
@@ -134,5 +131,41 @@ public class RelationsService : IRelationsService
 
         // Return
         return true;
+    }
+
+    public async Task<IEnumerable<Relation>> GetFriends(User user)
+    {
+        // Get all related friends relations
+        var friends = await _relationsRepository.GetListAsync(f =>
+            (f.SenderId == user.Id || f.ReceiverId == user.Id) &&
+            f.Status == RelationStatus.Accepted
+        );
+
+        // Return
+        return friends;
+    }
+
+    public async Task<IEnumerable<Relation>> GetUserBlocked(User user)
+    {
+        // Get all related relations that the user blocked
+        var blocked = await _relationsRepository.GetListAsync(f =>
+            f.SenderId == user.Id &&
+            f.Status == RelationStatus.Blocked
+        );
+
+        // Return
+        return blocked;
+    }
+
+    public async Task<IEnumerable<Relation>> GetBlockedUsers(User user)
+    {
+        // Get all related relations that blocked the user
+        var blocked = await _relationsRepository.GetListAsync(f =>
+            f.Receiver.Id == user.Id &&
+            f.Status == RelationStatus.Blocked
+        );
+
+        // Return
+        return blocked;
     }
 }
