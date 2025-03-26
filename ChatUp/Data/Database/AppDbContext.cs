@@ -32,9 +32,9 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Relation>()
-            .HasOne(r => r.Friend)
+            .HasOne(r => r.Receiver)
             .WithMany(u => u.ReceivedRelations)
-            .HasForeignKey(r => r.FriendId)
+            .HasForeignKey(r => r.ReceiverId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Relation>()

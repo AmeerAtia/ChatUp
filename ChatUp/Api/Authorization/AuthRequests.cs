@@ -15,6 +15,5 @@ public class RegisterRequest
 
 public class RefreshRequest
 {
-    public string UserId { get; set; }
     public string Token { get; set; }
 }

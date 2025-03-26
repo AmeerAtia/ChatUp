@@ -7,3 +7,5 @@ global using Scalar.AspNetCore;
 global using Microsoft.AspNetCore.Mvc;
 global using System.ComponentModel.DataAnnotations;
 global using Microsoft.AspNetCore.Mvc.Filters;
+global using System.Security.Cryptography;
+global using System.ComponentModel.DataAnnotations.Schema;

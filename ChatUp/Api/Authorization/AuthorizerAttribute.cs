@@ -1,30 +1,23 @@
 ﻿using ChatUp.Data.Entities;
 using ChatUp.Data.Repositories;
+using ChatUp.Services.Authorization;
 
 namespace ChatUp.Api.Authorization;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class AuthorizerAttribute : Attribute, IAsyncActionFilter
 {
-    private Repository<Session> _sessionRepository;
-    private Repository<User> _userRepository;
+    private readonly string _parameterName;
+
+    public AuthorizerAttribute(string parameterName = "user")
+    {
+        _parameterName = parameterName;
+    }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var httpContext = context.HttpContext;
-
-        // Get repositories
-        var sessionRepository = context.HttpContext.RequestServices.GetService<Repository<Session>>();
-        var userRepository = context.HttpContext.RequestServices.GetService<Repository<User>>();
-
-        if (_sessionRepository is null || _userRepository is null)
-        {
-            throw new InvalidOperationException("Filed to get repository");
-        }
-
-        _sessionRepository = sessionRepository;
-        _userRepository = userRepository;
-
+        var authService = httpContext.RequestServices.GetService<AuthService>();
 
         // Get token from cookie or header
         string? token = httpContext.Request.Cookies["AuthToken"]
@@ -36,38 +29,24 @@ public class AuthorizerAttribute : Attribute, IAsyncActionFilter
             return;
         }
 
-        // Get user ID from cookie or header
-        string? userIdString = httpContext.Request.Cookies["UserId"]
-                  ?? httpContext.Request.Headers["UserId"];
-
-        if (string.IsNullOrEmpty(userIdString))
+        // Validate Token
+        var user = await authService.Validate(token);
+        if (user is null)
         {
             context.Result = new UnauthorizedResult();
             return;
         }
 
-        // Parse user ID
-        if (!int.TryParse(userIdString, out int userId))
-        {
-            context.Result = new UnauthorizedResult();
-            return;
-        }
+        // Return user to the method
+        var parameter =context.ActionDescriptor.Parameters.FirstOrDefault(p =>
+            p.Name.Equals(_parameterName, StringComparison.OrdinalIgnoreCase) &&
+            p.ParameterType == typeof(User)
+        );
 
-        // check token and id in db
-        if (!await IsValidTokenAsync(userId, token))
-        {
-            context.Result = new UnauthorizedResult();
-            return;
+        if (parameter is not null)
+            context.ActionArguments[parameter.Name] = user;
 
-        }
-
-        // Authorized
+        // Continue to the Endpoint
         await next();
-    }
-
-    private async Task<bool> IsValidTokenAsync(int userId, string token)
-    {
-        var session = await _sessionRepository.GetAsync(s => s.Token == token && s.UserId == userId);
-        return session is not null && DateTimeOffset.FromUnixTimeSeconds(session.ExpirationAt) > DateTimeOffset.UtcNow;
     }
 }

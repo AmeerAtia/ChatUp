@@ -1,115 +1,73 @@
 ﻿using ChatUp.Data.Entities;
 using ChatUp.Data.Repositories;
+using ChatUp.Services.Authorization;
+using System.Security.Cryptography;
 
 namespace ChatUp.Api.Authorization;
 
-[ApiController]
-[Route("api/[controller]")]
+[ApiController, Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private readonly CookieOptions cookieOptions = new CookieOptions
+    {
+        HttpOnly = true,
+        Secure = true, 
+        SameSite = SameSiteMode.Strict,
+        Expires = DateTime.UtcNow.AddMinutes(15)
+    };
+
     private readonly IRepository<User> _userRepository;
     private readonly IRepository<Session> _sessionRepository;
-    private readonly IConfiguration _configuration;
+    private readonly AuthService _authService;
 
-    public AuthController(IRepository<User> userRepository, IRepository<Session> sessionRepository, IConfiguration configuration)
+    public AuthController(AuthService authService)
     {
-        _userRepository = userRepository;
-        _sessionRepository = sessionRepository;
-        _configuration = configuration;
+        _authService = authService;
     }
 
     /// <summary>
     /// Registers a new user.
     /// </summary>
-    [HttpPost]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    [HttpPost("signup")]
+    public async Task<IActionResult> SignUp([FromBody] RegisterRequest request)
     {
-        // Check if the Email is already registered
-        if (await _userRepository.ExistsAsync(u => u.Email == request.Email))
-        {
+        if (!await _authService.SignUp(request.Name, request.Email, request.Password))
             return BadRequest("Email already exists");
-        }
-
-        // Create a new user
-        var user = new User
-        {
-            Name = request.Name,
-            Email = request.Email,
-            Passhash = BCrypt.Net.BCrypt.HashPassword(request.Password)
-        };
-
-        // Save the user to the database
-        await _userRepository.InsertAsync(user);
-        await _userRepository.SaveAsync();
-
-        return Ok("User registered successfully.");
+        else
+            return Ok("User registered successfully.");
     }
 
     /// <summary>
     /// Logs in a user and save a Session then return the Token
     /// </summary>
-    [HttpPost]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    [HttpPost("signin")]
+    public async Task<IActionResult> SignIn([FromBody] LoginRequest request)
     {
-        // Find the user by email
-        var user = await _userRepository.GetAsync(u => u.Email == request.Email);
-        if (user is null)
+        // Call sign in from authprization service and validate the result
+        var result = await _authService.SignIn(request.Email, request.Password);
+        if (result is null)
             return Unauthorized("Invalid email or password.");
-
-        // Verify the password
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Passhash))
-            return Unauthorized("Invalid email or password.");
-
-        // Generate a token and refrech token
-        string token = Guid.NewGuid().ToString("N");
-        string refreshToken = Guid.NewGuid().ToString("N");
-
-        // Create and save the Session to the database
-        var session = new Session
-        {
-            UserId = user.Id,
-            Token = token,
-            ExpirationAt = DateTimeOffset.UtcNow.AddMinutes(15).ToUnixTimeSeconds(),
-            RefreshToken = refreshToken,
-        };
-
-        await _sessionRepository.InsertAsync(session);
-        await _sessionRepository.SaveAsync();
 
         // Determine if the client is a web app
-        bool isWebClient = HttpContext.Request.Headers["User-Agent"].ToString().Contains("Mozilla");
+        bool isWebClient = HttpContext.Request.Headers["Client-Type"] == "Web";
 
         // For web clients
         if (isWebClient)
         {
-            Response.Cookies.Append("AuthToken", token, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true, 
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(15)
-            });
-
-            Response.Cookies.Append("UserId", user.Id.ToString(), new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(20)
-            });
-
-            return Ok(user.Id);
+            Response.Cookies.Append("AuthToken", result.Token, cookieOptions);
+            Response.Cookies.Append("AuthRefreshToken", result.RefreshToken, cookieOptions);
+            return Ok();
         }
-        
+
         // For other clients
         return Ok(new
         {
-            Token = token,
-            UserId = user.Id
+            Token = result.Token,
+            RefreshToken = result.RefreshToken
         });
     }
 
-    [HttpPut]
+    [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
     {
         // Get the RefreshToken from the request cookies or body
@@ -117,93 +75,47 @@ public class AuthController : ControllerBase
                             ?? request.Token;
 
         if (string.IsNullOrEmpty(refreshToken))
-        {
             return Unauthorized("Refresh token is missing.");
-        }
 
-        // Get the UserId token from the request cookies or body
-        string? userIdString = HttpContext.Request.Cookies["UserId"]
-                            ?? request.UserId;
+        // Call refresh from authprization service and validate the result
+        var result = await _authService.Refresh(refreshToken);
 
-        if (string.IsNullOrEmpty(refreshToken))
-        {
-            return Unauthorized("User id is missing.");
-        }
-
-        // Parse user ID
-        if (!int.TryParse(userIdString, out int userId))
-        {
-            return Unauthorized("User id is invalid.");
-        }
-
-        // Find the session by Refresh token and User id
-        var session = await _sessionRepository.GetAsync(s =>
-            s.RefreshToken == refreshToken &&
-            s.UserId == userId
-        );
-
-        if (session is null)
-        {
+        if (result is null)
             return Unauthorized("Invalid or expired refresh token.");
-        }
-
-        // Generate a new access token
-        string newToken = Guid.NewGuid().ToString("N");
-
-        // Update the session with the new access token and expiration
-        session.Token = newToken;
-        session.ExpirationAt = DateTimeOffset.UtcNow.AddMinutes(15).ToUnixTimeSeconds();
-
-        _sessionRepository.Update(session);
-        await _sessionRepository.SaveAsync();
 
         // Determine if the client is a web app
-        bool isWebClient = HttpContext.Request.Headers["User-Agent"].ToString().Contains("Mozilla");
+        bool isWebClient = HttpContext.Request.Headers["Client-Type"] == "Web";
 
         // For web clients
         if (isWebClient)
         {
-            Response.Cookies.Append("AuthToken", newToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(15)
-            });
-
+            Response.Cookies.Append("AuthToken", result.Token, cookieOptions);
+            Response.Cookies.Append("AuthRefreshToken", result.RefreshToken, cookieOptions);
             return Ok();
         }
 
         // For other clients
         return Ok(new
         {
-            Token = newToken
+            Token = result.Token,
+            RefreshToken = result.RefreshToken
         });
     }
 
-    [HttpDelete]
-    public async Task<IActionResult> Logout()
+    [HttpPost("signout")]
+    public async Task<IActionResult> SignOut()
     {
         // Get the AuthToken from cookies or headers
         string? token = HttpContext.Request.Cookies["AuthToken"]
                       ?? HttpContext.Request.Headers["AuthToken"].ToString();
 
         if (string.IsNullOrEmpty(token))
-        {
-            return BadRequest("AuthToken is missing.");
-        }
+            return BadRequest("Missing token.");
 
-        // Find the session by token
-        var session = await _sessionRepository.GetAsync(s => s.Token == token);
-
-        if (session == null)
-        {
-            return NotFound("Session not found.");
-        }
-
-        // Delete the session from the database
-        _sessionRepository.Remove(session);
-        await _sessionRepository.SaveAsync();
+        // Call signout from authprization service and validate the result
+        var result = await _authService.SignOut(token);
+        if (!result)
+            return BadRequest("Invalid token.");
 
         // Clear cookies for web clients
         bool isWebClient = HttpContext.Request.Headers["User-Agent"].ToString().Contains("Mozilla");
@@ -211,8 +123,7 @@ public class AuthController : ControllerBase
         if (isWebClient)
         {
             Response.Cookies.Delete("AuthToken");
-            Response.Cookies.Delete("UserId");
-            Response.Cookies.Delete("RefreshToken");
+            Response.Cookies.Delete("AuthRefreshToken");
         }
 
         // Return
